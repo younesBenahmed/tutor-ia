@@ -49,9 +49,20 @@ class tutor_ia_api {
      */
     public function ask_question($history_json, $course_content, $syllabus = '', $coursename = '') {
 
-        $api_url = 'http://100.76.166.71:8200/v1/chat/completions';
-        $model_name = 'hal-9001-chat';
-        $api_key = 'sk-dummy';
+        // Try to use AI Grader settings if available, otherwise use defaults.
+        $api_url = get_config('local_dreamu_ai', 'api_endpoint');
+        $model_name = get_config('local_dreamu_ai', 'model_name');
+        $api_key = get_config('local_dreamu_ai', 'api_key');
+
+        if (empty($api_url)) {
+            $api_url = 'http://100.76.166.71:8200/v1/chat/completions';
+        }
+        if (empty($model_name)) {
+            $model_name = 'Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8';
+        }
+        if (empty($api_key)) {
+            $api_key = 'sk-dummy';
+        }
 
         $system_prompt = $this->build_system_prompt($course_content, $syllabus, $coursename);
 
