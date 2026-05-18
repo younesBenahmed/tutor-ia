@@ -20,4 +20,15 @@ function local_tutor_ia_extend_navigation_course(navigation_node $parentnode, st
             new pix_icon('i/settings', '')
         );
     }
+    if (has_capability('local/tutor_ia:viewlogs', $context)) {
+        $dashboardurl = new moodle_url('/local/tutor_ia/dashboard.php', ['courseid' => $course->id]);
+        $parentnode->add(
+            get_string('dashboard', 'local_tutor_ia'),
+            $dashboardurl,
+            navigation_node::TYPE_SETTING,
+            null,
+            'tutor_ia_dashboard',
+            new pix_icon('i/report', '')
+        );
+    }
 }

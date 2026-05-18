@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8" ?>
-<XMLDB PATH="local/tutor_ia/db" VERSION="2026051101" COMMENT="Local tutor_ia plugin tables">
+<XMLDB PATH="local/tutor_ia/db" VERSION="2026051800" COMMENT="Local tutor_ia plugin tables">
   <TABLES>
     <TABLE NAME="local_tutor_ia_config" COMMENT="Per-course configuration for the AI tutor">
       <FIELDS>
@@ -7,8 +7,61 @@
         <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true" COMMENT="FK to course.id"/>
         <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" COMMENT="Whether the tutor is enabled for this course"/>
         <FIELD NAME="syllabus" TYPE="text" NOTNULL="false" COMMENT="Custom syllabus or instructions from the professor"/>
+        <FIELD NAME="socratic_mode" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" COMMENT="Whether Socratic mode is enabled"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="courseid_unique" UNIQUE="true" FIELDS="courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_tutor_ia_logs" COMMENT="Logging table for AI tutor usage">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="message_count" TYPE="int" LENGTH="6" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="topic_keywords" TYPE="char" LENGTH="255" NOTNULL="false"/>
+        <FIELD NAME="tokens_used" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="session_duration" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="courseid_userid" UNIQUE="false" FIELDS="courseid,userid"/>
+        <INDEX NAME="timecreated_idx" UNIQUE="false" FIELDS="timecreated"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_tutor_ia_content_cache" COMMENT="Cache for extracted course content">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="content_hash" TYPE="char" LENGTH="32" NOTNULL="true"/>
+        <FIELD NAME="extracted_content" TYPE="text" NOTNULL="true"/>
+        <FIELD NAME="tokens_count" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="courseid_unique" UNIQUE="true" FIELDS="courseid"/>
+      </INDEXES>
+    </TABLE>
+    <TABLE NAME="local_tutor_ia_summaries" COMMENT="Cached AI-generated course summaries">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="content_hash" TYPE="char" LENGTH="32" NOTNULL="true"/>
+        <FIELD NAME="summary_html" TYPE="text" NOTNULL="true"/>
+        <FIELD NAME="summary_raw" TYPE="text" NOTNULL="false"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true"/>
       </FIELDS>
       <KEYS>
         <KEY NAME="primary" TYPE="primary" FIELDS="id"/>

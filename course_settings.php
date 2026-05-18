@@ -18,12 +18,14 @@ $PAGE->set_heading($course->fullname . ' - ' . get_string('settings_title', 'loc
 // Handle form submission.
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && confirm_sesskey()) {
     $enabled = optional_param('enabled', 0, PARAM_INT);
+    $socratic_mode = optional_param('socratic_mode', 0, PARAM_INT);
     $syllabus = optional_param('syllabus', '', PARAM_RAW);
 
     $existing = $DB->get_record('local_tutor_ia_config', ['courseid' => $courseid]);
 
     if ($existing) {
         $existing->enabled = $enabled ? 1 : 0;
+        $existing->socratic_mode = $socratic_mode ? 1 : 0;
         $existing->syllabus = $syllabus;
         $existing->timemodified = time();
         $DB->update_record('local_tutor_ia_config', $existing);
@@ -31,6 +33,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && confirm_sesskey()) {
         $record = new stdClass();
         $record->courseid = $courseid;
         $record->enabled = $enabled ? 1 : 0;
+        $record->socratic_mode = $socratic_mode ? 1 : 0;
         $record->syllabus = $syllabus;
         $record->timecreated = time();
         $record->timemodified = time();
@@ -45,6 +48,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && confirm_sesskey()) {
 // Load current config.
 $config = $DB->get_record('local_tutor_ia_config', ['courseid' => $courseid]);
 $enabled = $config ? $config->enabled : 0;
+$socratic_mode = ($config && isset($config->socratic_mode)) ? $config->socratic_mode : 0;
 $syllabus = $config ? $config->syllabus : '';
 
 echo $OUTPUT->header();
@@ -58,6 +62,15 @@ echo '<div class="col-sm-9">';
 echo '<input type="hidden" name="enabled" value="0">';
 echo '<input type="checkbox" name="enabled" id="enabled" value="1"' . ($enabled ? ' checked' : '') . ' class="form-check-input">';
 echo '<small class="form-text text-muted">' . get_string('enabled_desc', 'local_tutor_ia') . '</small>';
+echo '</div>';
+echo '</div>';
+
+echo '<div class="form-group row mb-3">';
+echo '<label class="col-sm-3 col-form-label" for="socratic_mode">' . get_string('socratic_mode', 'local_tutor_ia') . '</label>';
+echo '<div class="col-sm-9">';
+echo '<input type="hidden" name="socratic_mode" value="0">';
+echo '<input type="checkbox" name="socratic_mode" id="socratic_mode" value="1"' . ($socratic_mode ? ' checked' : '') . ' class="form-check-input">';
+echo '<small class="form-text text-muted">' . get_string('socratic_mode_desc', 'local_tutor_ia') . '</small>';
 echo '</div>';
 echo '</div>';
 

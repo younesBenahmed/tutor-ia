@@ -11,7 +11,7 @@ class tutor_ia_api {
      * @param string $coursename Course full name
      * @return string
      */
-    private function build_system_prompt($course_content, $syllabus = '', $coursename = '') {
+    private function build_system_prompt($course_content, $syllabus = '', $coursename = '', $socratic = false) {
         $prompt = "Tu es un tuteur pédagogique IA intégré à la plateforme Moodle pour le cours : {$coursename}.\n\n";
 
         // Strict rules section.
@@ -32,6 +32,16 @@ class tutor_ia_api {
             $prompt .= trim($syllabus) . "\n\n";
         }
 
+        // Socratic mode.
+        if ($socratic) {
+            $prompt .= "=== MODE SOCRATIQUE ===\n";
+            $prompt .= "Tu NE DOIS JAMAIS donner la reponse directement.\n";
+            $prompt .= "Pose des questions guidees pour que l'etudiant trouve par lui-meme.\n";
+            $prompt .= "Utilise la maieutique : decompose le probleme, fais reflechir.\n";
+            $prompt .= "Si l'etudiant est bloque apres 3 echanges sur le meme sujet, donne un indice plus explicite.\n";
+            $prompt .= "Ne donne JAMAIS de code complet, seulement des fragments ou pseudo-code.\n\n";
+        }
+
         // Course content.
         $prompt .= "=== CONTENU DU COURS ===\n";
         $prompt .= $course_content . "\n";
@@ -47,7 +57,7 @@ class tutor_ia_api {
      * @param string $syllabus Optional custom syllabus
      * @param string $coursename Course full name
      */
-    public function ask_question($history_json, $course_content, $syllabus = '', $coursename = '') {
+    public function ask_question($history_json, $course_content, $syllabus = '', $coursename = '', $socratic = false, $logid = 0) {
 
         // Try to use AI Grader settings if available, otherwise use defaults.
         $api_url = get_config('local_dreamu_ai', 'api_endpoint');
@@ -64,7 +74,7 @@ class tutor_ia_api {
             $api_key = 'sk-dummy';
         }
 
-        $system_prompt = $this->build_system_prompt($course_content, $syllabus, $coursename);
+        $system_prompt = $this->build_system_prompt($course_content, $syllabus, $coursename, $socratic);
 
         $messages = [
             ['role' => 'system', 'content' => $system_prompt]
@@ -102,7 +112,9 @@ class tutor_ia_api {
         ]);
         curl_setopt($ch, CURLOPT_TIMEOUT, 120);
 
-        curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($curl, $data) {
+        $streamed_bytes = 0;
+        curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($curl, $data) use (&$streamed_bytes) {
+            $streamed_bytes += strlen($data);
             echo $data;
             if (ob_get_level() > 0) {
                 ob_flush();
@@ -112,12 +124,61 @@ class tutor_ia_api {
         });
 
         $result = curl_exec($ch);
+        $http_code = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        $primary_failed = ($result === false || $http_code >= 500);
 
-        if ($result === false) {
+        if ($primary_failed) {
             $error = curl_error($ch);
-            echo "data: {\"choices\":[{\"delta\":{\"content\":\"\\n\\n Erreur de connexion a l'IA : $error\"}}]}\n\n";
+            curl_close($ch);
+
+            // Try fallback endpoint.
+            $fallback_url = get_config('local_tutor_ia', 'api_endpoint_fallback');
+            $fallback_model = get_config('local_tutor_ia', 'model_name_fallback');
+
+            if (!empty($fallback_url)) {
+                if (!empty($fallback_model)) {
+                    $data['model'] = $fallback_model;
+                }
+
+                $ch2 = curl_init($fallback_url);
+                curl_setopt($ch2, CURLOPT_POST, true);
+                curl_setopt($ch2, CURLOPT_POSTFIELDS, json_encode($data));
+                curl_setopt($ch2, CURLOPT_HTTPHEADER, [
+                    'Content-Type: application/json',
+                    'Authorization: Bearer ' . $api_key,
+                    'Accept: text/event-stream'
+                ]);
+                curl_setopt($ch2, CURLOPT_TIMEOUT, 120);
+                curl_setopt($ch2, CURLOPT_WRITEFUNCTION, function($curl, $data) use (&$streamed_bytes) {
+                    $streamed_bytes += strlen($data);
+                    echo $data;
+                    if (ob_get_level() > 0) {
+                        ob_flush();
+                    }
+                    flush();
+                    return strlen($data);
+                });
+
+                $result2 = curl_exec($ch2);
+                $http_code2 = curl_getinfo($ch2, CURLINFO_HTTP_CODE);
+
+                if ($result2 === false || $http_code2 >= 500) {
+                    echo "data: {\"choices\":[{\"delta\":{\"content\":\"\\n\\n Le service IA est temporairement indisponible. Veuillez reessayer plus tard.\"}}]}\n\n";
+                }
+
+                curl_close($ch2);
+            } else {
+                echo "data: {\"choices\":[{\"delta\":{\"content\":\"\\n\\n Erreur de connexion a l'IA : $error\"}}]}\n\n";
+            }
+        } else {
+            curl_close($ch);
         }
 
-        curl_close($ch);
+        // Estimate tokens used (rough: ~4 chars per token for streamed response).
+        if ($logid > 0 && $streamed_bytes > 0) {
+            global $DB;
+            $estimated_tokens = (int) ceil($streamed_bytes / 4);
+            $DB->set_field('local_tutor_ia_logs', 'tokens_used', $estimated_tokens, ['id' => $logid]);
+        }
     }
 }
