@@ -118,6 +118,7 @@ define('local_tutor_ia/chat', ['jquery'], function($) {
 
                 function resetUI(finalText) {
                     chatHistory.push({"role": "assistant", "content": finalText});
+                    checkQuizButton();
                     abortController = null;
 
                     sendBtn.html('Envoyer').css({'background-color': '#0f6fc5'});
@@ -220,6 +221,127 @@ define('local_tutor_ia/chat', ['jquery'], function($) {
 
             sendBtn.on('click', sendMessage);
             inputField.on('keypress', function(e) { if (e.which === 13) sendMessage(); });
+
+            // Quiz post-conversation: show button after 8+ messages in history
+            function checkQuizButton() {
+                if (chatHistory.length >= 8 && !document.getElementById('tutor-ia-quiz-btn')) {
+                    var quizBtn = $('<button id="tutor-ia-quiz-btn" style="margin:10px auto; display:block; background:#34c759; color:white; border:none; padding:8px 20px; border-radius:20px; cursor:pointer; font-weight:bold; font-size:13px;">Tester mes connaissances</button>');
+                    chatBox.append(quizBtn);
+                    quizBtn.on('click', generateQuiz);
+                    chatBox.scrollTop(chatBox[0].scrollHeight);
+                }
+            }
+
+            function generateQuiz() {
+                $('#tutor-ia-quiz-btn').remove();
+                var quizId = 'ia-quiz-' + Date.now();
+                chatBox.append('<div id="' + quizId + '" style="margin:10px 0; padding:15px; background:#f0f7ff; border:1px solid #cce5ff; border-radius:12px;"><em>Generation du quiz...</em></div>');
+                chatBox.scrollTop(chatBox[0].scrollHeight);
+
+                var courseInfo = detectCourseId();
+                fetch(M.cfg.wwwroot + '/local/tutor_ia/ajax.php', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: new URLSearchParams({
+                        courseid: courseInfo.courseid,
+                        history: JSON.stringify(chatHistory),
+                        sesskey: M.cfg.sesskey,
+                        action: 'generate_quiz'
+                    })
+                }).then(function(response) {
+                    return response.text();
+                }).then(function(text) {
+                    // Parse SSE data to extract the full response
+                    var fullText = '';
+                    text.split('\n').forEach(function(line) {
+                        if (line.startsWith('data: ') && !line.includes('[DONE]')) {
+                            try {
+                                var data = JSON.parse(line.substring(6).trim());
+                                if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
+                                    fullText += data.choices[0].delta.content;
+                                }
+                            } catch(e) {}
+                        }
+                    });
+
+                    // Try to extract JSON from the response
+                    var jsonMatch = fullText.match(/\[[\s\S]*\]/);
+                    if (!jsonMatch) {
+                        $('#' + quizId).html('<p style="color:#dc3545;">Impossible de generer le quiz. Reessayez.</p>');
+                        return;
+                    }
+
+                    try {
+                        var questions = JSON.parse(jsonMatch[0]);
+                        renderQuiz(quizId, questions);
+                    } catch(e) {
+                        $('#' + quizId).html('<p style="color:#dc3545;">Erreur de format. Reessayez.</p>');
+                    }
+                }).catch(function() {
+                    $('#' + quizId).html('<p style="color:#dc3545;">Erreur reseau.</p>');
+                });
+            }
+
+            function renderQuiz(containerId, questions) {
+                var html = '<div style="font-weight:bold; margin-bottom:12px; font-size:15px;">Mini-Quiz (basé sur notre conversation)</div>';
+                questions.forEach(function(q, qi) {
+                    html += '<div class="quiz-q" data-qi="' + qi + '" data-correct="' + q.correct + '" style="margin-bottom:16px; padding:12px; background:white; border-radius:8px; border:1px solid #e0e0e0;">';
+                    html += '<div style="font-weight:600; margin-bottom:8px;">' + (qi+1) + '. ' + $('<span>').text(q.question).html() + '</div>';
+                    q.choices.forEach(function(c, ci) {
+                        html += '<label style="display:block; padding:6px 10px; margin:3px 0; border-radius:6px; cursor:pointer; border:1px solid #ddd; transition:all .2s;" data-ci="' + ci + '">';
+                        html += '<input type="radio" name="quiz_' + qi + '" value="' + ci + '" style="margin-right:8px;">';
+                        html += $('<span>').text(c).html();
+                        html += '</label>';
+                    });
+                    html += '<div class="quiz-feedback" style="display:none; margin-top:8px; padding:8px; border-radius:6px; font-size:13px;"></div>';
+                    html += '</div>';
+                });
+                html += '<div id="quiz-score" style="display:none; text-align:center; padding:12px; font-weight:bold; font-size:16px; background:#d4edda; border-radius:8px; margin-top:8px;"></div>';
+
+                $('#' + containerId).html(html);
+
+                var answered = 0;
+                var correct = 0;
+                var total = questions.length;
+
+                $('#' + containerId).on('change', 'input[type=radio]', function() {
+                    var qDiv = $(this).closest('.quiz-q');
+                    if (qDiv.data('answered')) return;
+                    qDiv.data('answered', true);
+
+                    var qi = qDiv.data('qi');
+                    var correctIdx = qDiv.data('correct');
+                    var selectedIdx = parseInt($(this).val());
+                    var feedback = qDiv.find('.quiz-feedback');
+
+                    qDiv.find('label').each(function() {
+                        var ci = $(this).data('ci');
+                        if (ci === correctIdx) {
+                            $(this).css({'background': '#d4edda', 'border-color': '#28a745'});
+                        } else if (ci === selectedIdx && selectedIdx !== correctIdx) {
+                            $(this).css({'background': '#f8d7da', 'border-color': '#dc3545'});
+                        }
+                        $(this).find('input').prop('disabled', true);
+                    });
+
+                    answered++;
+                    if (selectedIdx === correctIdx) {
+                        correct++;
+                        feedback.html('Correct !').css({'background': '#d4edda', 'color': '#155724'}).show();
+                    } else {
+                        var explanation = questions[qi].explanation || '';
+                        feedback.html('Incorrect. ' + $('<span>').text(explanation).html()).css({'background': '#f8d7da', 'color': '#721c24'}).show();
+                    }
+
+                    if (answered === total) {
+                        $('#quiz-score').text('Score : ' + correct + '/' + total).show();
+                    }
+
+                    chatBox.scrollTop(chatBox[0].scrollHeight);
+                });
+
+                chatBox.scrollTop(chatBox[0].scrollHeight);
+            }
         }
     };
 });

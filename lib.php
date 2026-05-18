@@ -31,4 +31,15 @@ function local_tutor_ia_extend_navigation_course(navigation_node $parentnode, st
             new pix_icon('i/report', '')
         );
     }
+    if (has_capability('local/tutor_ia:use', $context)) {
+        $flashcardsurl = new moodle_url('/local/tutor_ia/flashcards.php', ['courseid' => $course->id]);
+        $parentnode->add(
+            get_string('flashcards_title', 'local_tutor_ia'),
+            $flashcardsurl,
+            navigation_node::TYPE_SETTING,
+            null,
+            'tutor_ia_flashcards',
+            new pix_icon('i/competencies', '')
+        );
+    }
 }

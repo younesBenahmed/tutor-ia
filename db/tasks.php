@@ -10,4 +10,13 @@ $tasks = [
         'month' => '*',
         'dayofweek' => '*',
     ],
+    [
+        'classname' => 'local_tutor_ia\task\detect_difficulty_zones',
+        'blocking' => 0,
+        'minute' => '30',
+        'hour' => '6',
+        'day' => '*',
+        'month' => '*',
+        'dayofweek' => '*',
+    ],
 ];

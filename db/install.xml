@@ -70,5 +70,24 @@
         <INDEX NAME="courseid_unique" UNIQUE="true" FIELDS="courseid"/>
       </INDEXES>
     </TABLE>
+    <TABLE NAME="local_tutor_ia_flashcards" COMMENT="AI-generated flashcards for spaced repetition">
+      <FIELDS>
+        <FIELD NAME="id" TYPE="int" LENGTH="10" NOTNULL="true" SEQUENCE="true"/>
+        <FIELD NAME="courseid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="userid" TYPE="int" LENGTH="10" NOTNULL="true"/>
+        <FIELD NAME="front" TYPE="text" NOTNULL="true"/>
+        <FIELD NAME="back" TYPE="text" NOTNULL="true"/>
+        <FIELD NAME="status" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" COMMENT="0=new, 1=known, 2=review"/>
+        <FIELD NAME="next_review" TYPE="int" LENGTH="10" NOTNULL="false"/>
+        <FIELD NAME="review_count" TYPE="int" LENGTH="4" NOTNULL="true" DEFAULT="0"/>
+        <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true"/>
+      </FIELDS>
+      <KEYS>
+        <KEY NAME="primary" TYPE="primary" FIELDS="id"/>
+      </KEYS>
+      <INDEXES>
+        <INDEX NAME="courseid_userid" UNIQUE="false" FIELDS="courseid,userid"/>
+      </INDEXES>
+    </TABLE>
   </TABLES>
 </XMLDB>
