@@ -8,6 +8,7 @@
         <FIELD NAME="enabled" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" COMMENT="Whether the tutor is enabled for this course"/>
         <FIELD NAME="syllabus" TYPE="text" NOTNULL="false" COMMENT="Custom syllabus or instructions from the professor"/>
         <FIELD NAME="socratic_mode" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" COMMENT="Whether Socratic mode is enabled"/>
+        <FIELD NAME="gamification" TYPE="int" LENGTH="1" NOTNULL="true" DEFAULT="0" COMMENT="Whether gamification mode is enabled"/>
         <FIELD NAME="timecreated" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
         <FIELD NAME="timemodified" TYPE="int" LENGTH="10" NOTNULL="true" DEFAULT="0"/>
       </FIELDS>

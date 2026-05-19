@@ -39,3 +39,5 @@ $string['task_detect_difficulty'] = 'Détection des zones de difficulté';
 $string['alert_subject'] = 'Alerte Tuteur IA - {$a}';
 $string['alert_message'] = 'Alerte pour le cours "{$a->coursename}" : les sujets suivants ont été fréquemment demandés par les étudiants ces {$a->days} derniers jours : {$a->topics}. Consultez le tableau de bord pour plus de détails.';
 $string['messageprovider:difficulty_alert'] = 'Alertes zones de difficulté du Tuteur IA';
+$string['gamification'] = 'Mode gamification';
+$string['gamification_desc'] = 'Quand un étudiant atteint sa limite de messages, un quiz bonus apparaît. Chaque bonne réponse donne 5 messages supplémentaires.';

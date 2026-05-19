@@ -40,19 +40,63 @@ if (!$config || !$config->enabled) {
     die();
 }
 
-// Rate limiting.
+// Rate limiting with gamification support.
 $rate_limit = get_config('local_tutor_ia', 'rate_limit') ?: 30;
 $window = 3600;
-$recent_count = $DB->count_records_select(
+$recent_logs = $DB->get_records_select(
     'local_tutor_ia_logs',
     'userid = :uid AND courseid = :cid AND timecreated > :since',
     ['uid' => $USER->id, 'cid' => $courseid, 'since' => time() - $window]
 );
-if ($recent_count >= $rate_limit) {
-    header('Content-Type: text/event-stream');
-    $minutes_left = ceil(($window - (time() % $window)) / 60);
-    echo "data: {\"choices\":[{\"delta\":{\"content\":\"Vous avez atteint la limite de messages pour cette heure. Prenez le temps de relire les reponses precedentes.\"}}]}\n\n";
-    echo "data: [DONE]\n\n";
+$recent_count = 0;
+$bonus_total = 0;
+foreach ($recent_logs as $rl) {
+    $recent_count += $rl->message_count;
+    $bonus_total += ($rl->bonus_tokens ?? 0);
+}
+$effective_limit = $rate_limit + $bonus_total;
+
+if ($recent_count >= $effective_limit) {
+    $gamification_enabled = !empty($config->gamification);
+
+    if ($gamification_enabled && $action !== 'earn_tokens') {
+        // Return a gamification quiz instead of blocking.
+        header('Content-Type: text/event-stream');
+        echo "data: {\"choices\":[{\"delta\":{\"content\":\"" .
+            "\\n\\n---\\n**Limite atteinte !** Vous avez utilis\\u00e9 vos {$effective_limit} messages cette heure.\\n\\n" .
+            "Mais bonne nouvelle : r\\u00e9pondez correctement au quiz ci-dessous pour gagner 5 messages suppl\\u00e9mentaires !\\n\"}}]}\n\n";
+        echo "data: {\"choices\":[{\"delta\":{\"content\":\"\"}}],\"gamification\":true}\n\n";
+        echo "data: [DONE]\n\n";
+        die();
+    } else if (!$gamification_enabled) {
+        header('Content-Type: text/event-stream');
+        echo "data: {\"choices\":[{\"delta\":{\"content\":\"Vous avez atteint la limite de messages pour cette heure ({$effective_limit}). Prenez le temps de relire les r\\u00e9ponses pr\\u00e9c\\u00e9dentes.\"}}]}\n\n";
+        echo "data: [DONE]\n\n";
+        die();
+    }
+}
+
+// Handle earn_tokens action (gamification quiz correct answers).
+if ($action === 'earn_tokens') {
+    $correct_count = optional_param('correct', 0, PARAM_INT);
+    if ($correct_count > 0) {
+        $bonus = $correct_count * 5; // 5 messages per correct answer
+        $log_to_update = $DB->get_record_select(
+            'local_tutor_ia_logs',
+            'userid = :uid AND courseid = :cid AND timecreated > :since',
+            ['uid' => $USER->id, 'cid' => $courseid, 'since' => time() - $window],
+            '*', IGNORE_MULTIPLE
+        );
+        if ($log_to_update) {
+            $log_to_update->bonus_tokens = ($log_to_update->bonus_tokens ?? 0) + $bonus;
+            $DB->update_record('local_tutor_ia_logs', $log_to_update);
+        }
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'ok', 'bonus' => $bonus, 'new_limit' => $effective_limit + $bonus]);
+    } else {
+        header('Content-Type: application/json');
+        echo json_encode(['status' => 'ok', 'bonus' => 0]);
+    }
     die();
 }
 

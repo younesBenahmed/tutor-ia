@@ -172,6 +172,9 @@ define('local_tutor_ia/chat', ['jquery'], function($) {
                     function readStream() {
                         reader.read().then(function(result) {
                             if (result.done) {
+                                if (triggerGamification) {
+                                    launchGamificationQuiz(messageId);
+                                }
                                 resetUI(fullText);
                                 return;
                             }
@@ -179,12 +182,16 @@ define('local_tutor_ia/chat', ['jquery'], function($) {
                             var chunk = decoder.decode(result.value, {stream: true});
                             var lines = chunk.split('\n');
 
+                            var triggerGamification = false;
                             lines.forEach(function(line) {
                                 if (line.startsWith('data: ') && !line.includes('[DONE]')) {
                                     try {
                                         var dataStr = line.substring(6).trim();
                                         if (dataStr) {
                                             var data = JSON.parse(dataStr);
+                                            if (data.gamification) {
+                                                triggerGamification = true;
+                                            }
                                             if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
                                                 fullText += data.choices[0].delta.content;
 
@@ -216,6 +223,81 @@ define('local_tutor_ia/chat', ['jquery'], function($) {
                     chatHistory.pop(); abortController = null;
                     sendBtn.html('Envoyer').css({'background-color': '#0f6fc5'}).prop('disabled', false);
                     inputField.prop('disabled', false).focus();
+                });
+            }
+
+            // Gamification quiz: earn tokens by answering correctly.
+            function launchGamificationQuiz(afterMsgId) {
+                var courseInfo = detectCourseId();
+                fetch(M.cfg.wwwroot + '/local/tutor_ia/ajax.php', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                    body: new URLSearchParams({
+                        courseid: courseInfo.courseid,
+                        history: JSON.stringify(chatHistory),
+                        sesskey: M.cfg.sesskey,
+                        action: 'generate_quiz'
+                    })
+                }).then(function(r) { return r.text(); }).then(function(text) {
+                    var jsonMatch = text.match(/\[[\s\S]*\]/);
+                    if (!jsonMatch) return;
+                    try {
+                        var questions = JSON.parse(jsonMatch[0]);
+                        var quizId = 'gamif-quiz-' + Date.now();
+                        chatBox.append('<div id="' + quizId + '" style="margin:10px 0; padding:15px; background:#fff3cd; border:1px solid #ffc107; border-radius:12px;"></div>');
+                        renderGamificationQuiz(quizId, questions, courseInfo.courseid);
+                        chatBox.scrollTop(chatBox[0].scrollHeight);
+                    } catch(e) {}
+                });
+            }
+
+            function renderGamificationQuiz(containerId, questions, courseid) {
+                var html = '<div style="font-weight:bold; margin-bottom:10px; color:#856404;">Quiz bonus - Gagnez des messages !</div>';
+                questions.forEach(function(q, qi) {
+                    html += '<div class="quiz-q" data-qi="' + qi + '" data-correct="' + q.correct + '" style="margin-bottom:12px; padding:10px; background:white; border-radius:8px; border:1px solid #e0e0e0;">';
+                    html += '<div style="font-weight:600; margin-bottom:6px; font-size:13px;">' + (qi+1) + '. ' + $('<span>').text(q.question).html() + '</div>';
+                    q.choices.forEach(function(c, ci) {
+                        html += '<label style="display:block; padding:5px 8px; margin:2px 0; border-radius:6px; cursor:pointer; border:1px solid #ddd; font-size:12px;" data-ci="' + ci + '">';
+                        html += '<input type="radio" name="gamif_' + qi + '" value="' + ci + '" style="margin-right:6px;">';
+                        html += $('<span>').text(c).html() + '</label>';
+                    });
+                    html += '<div class="quiz-feedback" style="display:none; margin-top:6px; padding:6px; border-radius:6px; font-size:12px;"></div>';
+                    html += '</div>';
+                });
+                html += '<div id="gamif-result" style="display:none; text-align:center; padding:10px; font-weight:bold; border-radius:8px; margin-top:8px;"></div>';
+                $('#' + containerId).html(html);
+
+                var answered = 0, correct = 0, total = questions.length;
+                $('#' + containerId).on('change', 'input[type=radio]', function() {
+                    var qDiv = $(this).closest('.quiz-q');
+                    if (qDiv.data('answered')) return;
+                    qDiv.data('answered', true);
+                    var correctIdx = qDiv.data('correct');
+                    var selectedIdx = parseInt($(this).val());
+                    qDiv.find('label').each(function() {
+                        var ci = $(this).data('ci');
+                        if (ci === correctIdx) $(this).css({'background':'#d4edda','border-color':'#28a745'});
+                        else if (ci === selectedIdx && selectedIdx !== correctIdx) $(this).css({'background':'#f8d7da','border-color':'#dc3545'});
+                        $(this).find('input').prop('disabled', true);
+                    });
+                    answered++;
+                    if (selectedIdx === correctIdx) correct++;
+                    var fb = qDiv.find('.quiz-feedback');
+                    fb.html(selectedIdx === correctIdx ? 'Correct ! +5 messages' : 'Incorrect.').css({'background': selectedIdx === correctIdx ? '#d4edda' : '#f8d7da', 'color': selectedIdx === correctIdx ? '#155724' : '#721c24'}).show();
+
+                    if (answered === total) {
+                        var bonus = correct * 5;
+                        var resultDiv = $('#gamif-result');
+                        resultDiv.html('Score : ' + correct + '/' + total + (bonus > 0 ? ' - Vous gagnez ' + bonus + ' messages !' : ' - Aucun bonus.')).css({'background': bonus > 0 ? '#d4edda' : '#f8d7da'}).show();
+                        if (bonus > 0) {
+                            fetch(M.cfg.wwwroot + '/local/tutor_ia/ajax.php', {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+                                body: new URLSearchParams({courseid: courseid, history: '[]', sesskey: M.cfg.sesskey, action: 'earn_tokens', correct: correct})
+                            });
+                        }
+                        chatBox.scrollTop(chatBox[0].scrollHeight);
+                    }
                 });
             }
 

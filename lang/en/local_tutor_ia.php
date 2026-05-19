@@ -39,3 +39,5 @@ $string['task_detect_difficulty'] = 'Detect difficulty zones';
 $string['alert_subject'] = 'AI Tutor Alert - {$a}';
 $string['alert_message'] = 'Alert for course "{$a->coursename}": the following topics have been frequently asked by students in the past {$a->days} days: {$a->topics}. Check the dashboard for details.';
 $string['messageprovider:difficulty_alert'] = 'AI Tutor difficulty zone alerts';
+$string['gamification'] = 'Gamification mode';
+$string['gamification_desc'] = 'When a student reaches their message limit, a bonus quiz appears. Each correct answer grants 5 additional messages.';
