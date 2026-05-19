@@ -167,6 +167,7 @@ define('local_tutor_ia/chat', ['jquery'], function($) {
                     var reader = response.body.getReader();
                     var decoder = new TextDecoder('utf-8');
                     var fullText = "";
+                    var triggerGamification = false;
                     $('#' + messageId).html('');
 
                     function readStream() {
@@ -181,8 +182,6 @@ define('local_tutor_ia/chat', ['jquery'], function($) {
 
                             var chunk = decoder.decode(result.value, {stream: true});
                             var lines = chunk.split('\n');
-
-                            var triggerGamification = false;
                             lines.forEach(function(line) {
                                 if (line.startsWith('data: ') && !line.includes('[DONE]')) {
                                     try {

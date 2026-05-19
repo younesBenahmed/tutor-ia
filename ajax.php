@@ -59,7 +59,7 @@ $effective_limit = $rate_limit + $bonus_total;
 if ($recent_count >= $effective_limit) {
     $gamification_enabled = !empty($config->gamification);
 
-    if ($gamification_enabled && $action !== 'earn_tokens') {
+    if ($gamification_enabled && $action !== 'earn_tokens' && $action !== 'generate_quiz') {
         // Return a gamification quiz instead of blocking.
         header('Content-Type: text/event-stream');
         echo "data: {\"choices\":[{\"delta\":{\"content\":\"" .
@@ -68,7 +68,7 @@ if ($recent_count >= $effective_limit) {
         echo "data: {\"choices\":[{\"delta\":{\"content\":\"\"}}],\"gamification\":true}\n\n";
         echo "data: [DONE]\n\n";
         die();
-    } else if (!$gamification_enabled) {
+    } else if (!$gamification_enabled && $action !== 'generate_quiz') {
         header('Content-Type: text/event-stream');
         echo "data: {\"choices\":[{\"delta\":{\"content\":\"Vous avez atteint la limite de messages pour cette heure ({$effective_limit}). Prenez le temps de relire les r\\u00e9ponses pr\\u00e9c\\u00e9dentes.\"}}]}\n\n";
         echo "data: [DONE]\n\n";
