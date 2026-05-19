@@ -12,7 +12,7 @@ while (ob_get_level()) {
 $courseid = required_param('courseid', PARAM_INT);
 $history_json = required_param('history', PARAM_RAW);
 $cmid = optional_param('cmid', 0, PARAM_INT);
-$action = optional_param('action', 'chat', PARAM_ALPHA);
+$action = optional_param('action', 'chat', PARAM_ALPHANUMEXT);
 $assignment_context = optional_param('assignment_context', '', PARAM_RAW);
 
 global $DB, $USER, $SESSION;
