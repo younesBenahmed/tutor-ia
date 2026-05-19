@@ -9,7 +9,7 @@ $context = context_course::instance($courseid);
 require_login($course);
 require_capability('local/tutor_ia:configure', $context);
 
-$PAGE->set_url(new moodle_url('/local/tutor_ia/settings.php', ['courseid' => $courseid]));
+$PAGE->set_url(new moodle_url('/local/tutor_ia/course_settings.php', ['courseid' => $courseid]));
 $PAGE->set_context($context);
 $PAGE->set_course($course);
 $PAGE->set_title(get_string('settings_title', 'local_tutor_ia'));
