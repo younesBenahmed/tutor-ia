@@ -57,51 +57,45 @@ if ($recent_count >= $rate_limit) {
 }
 
 if ($action === 'generate_quiz') {
-    while (ob_get_level()) {
-        ob_end_clean();
-    }
-    header('Content-Type: text/event-stream');
-    header('Cache-Control: no-cache');
-
-    $context_text = \local_tutor_ia\content_extractor::get_course_content($courseid);
-
-    $quiz_prompt = "A partir de la conversation suivante, genere exactement 3 questions pour verifier la comprehension de l'etudiant.\n";
-    $quiz_prompt .= "Format JSON strict, rien d'autre que le JSON :\n";
-    $quiz_prompt .= '[{"question": "...", "choices": ["A", "B", "C", "D"], "correct": 0, "explanation": "..."}]' . "\n";
-    $quiz_prompt .= "correct est l'index (0-3) du bon choix. explanation explique pourquoi.\n";
-    $quiz_prompt .= "Les questions doivent porter sur ce qui a ete discute dans la conversation, pas sur le cours en general.\n";
+    $quiz_prompt = "A partir de la conversation suivante, genere exactement 3 questions QCM.\n";
+    $quiz_prompt .= "IMPORTANT: Reponds UNIQUEMENT avec un tableau JSON, sans balise <think>, sans bloc markdown, sans explication.\n";
+    $quiz_prompt .= "Format exact: [{\"question\": \"...\", \"choices\": [\"A\", \"B\", \"C\", \"D\"], \"correct\": 0, \"explanation\": \"...\"}]\n";
+    $quiz_prompt .= "correct est l'index (0-3) du bon choix.\n";
+    $quiz_prompt .= "Les questions doivent porter sur ce qui a ete discute dans la conversation.\n";
 
     $messages = json_decode($history_json, true);
     if (!is_array($messages)) {
         $messages = [['role' => 'user', 'content' => $history_json]];
     }
     array_unshift($messages, ['role' => 'system', 'content' => $quiz_prompt]);
-    $messages[] = ['role' => 'user', 'content' => 'Genere le quiz maintenant. Reponds UNIQUEMENT avec le JSON.'];
+    $messages[] = ['role' => 'user', 'content' => 'Genere le quiz. UNIQUEMENT le JSON.'];
 
     $api_url = get_config('local_dreamu_ai', 'api_endpoint') ?: 'http://100.76.166.71:8200/v1/chat/completions';
     $model_name = get_config('local_dreamu_ai', 'model_name') ?: 'Qwen/Qwen3-Coder-30B-A3B-Instruct-FP8';
     $api_key = get_config('local_dreamu_ai', 'api_key') ?: 'sk-dummy';
 
-    $data = ['model' => $model_name, 'messages' => $messages, 'temperature' => 0.3, 'stream' => true];
-
-    if (function_exists('apache_setenv')) { @apache_setenv('no-gzip', 1); }
-    @ini_set('zlib.output_compression', 0);
-    @ini_set('implicit_flush', 1);
-    header('X-Accel-Buffering: no');
+    $data = ['model' => $model_name, 'messages' => $messages, 'temperature' => 0.3, 'stream' => false];
 
     $ch = curl_init($api_url);
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode($data));
-    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Authorization: Bearer ' . $api_key, 'Accept: text/event-stream']);
+    curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json', 'Authorization: Bearer ' . $api_key]);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_TIMEOUT, 60);
-    curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($curl, $data) {
-        echo $data;
-        if (ob_get_level() > 0) ob_flush();
-        flush();
-        return strlen($data);
-    });
-    curl_exec($ch);
+    $response = curl_exec($ch);
     curl_close($ch);
+
+    $result = json_decode($response, true);
+    $text = $result['choices'][0]['message']['content'] ?? '';
+
+    // Clean model artifacts.
+    $text = preg_replace('/<think>[\s\S]*?<\/think>/', '', $text);
+    $text = preg_replace('/```json\s*/', '', $text);
+    $text = preg_replace('/```\s*/', '', $text);
+    $text = trim($text);
+
+    header('Content-Type: application/json');
+    echo $text;
     die();
 }
 

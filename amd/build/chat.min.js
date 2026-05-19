@@ -251,21 +251,8 @@ define('local_tutor_ia/chat', ['jquery'], function($) {
                 }).then(function(response) {
                     return response.text();
                 }).then(function(text) {
-                    // Parse SSE data to extract the full response
-                    var fullText = '';
-                    text.split('\n').forEach(function(line) {
-                        if (line.startsWith('data: ') && !line.includes('[DONE]')) {
-                            try {
-                                var data = JSON.parse(line.substring(6).trim());
-                                if (data.choices && data.choices[0].delta && data.choices[0].delta.content) {
-                                    fullText += data.choices[0].delta.content;
-                                }
-                            } catch(e) {}
-                        }
-                    });
-
-                    // Try to extract JSON from the response
-                    var jsonMatch = fullText.match(/\[[\s\S]*\]/);
+                    // Response is now direct JSON (not SSE)
+                    var jsonMatch = text.match(/\[[\s\S]*\]/);
                     if (!jsonMatch) {
                         $('#' + quizId).html('<p style="color:#dc3545;">Impossible de generer le quiz. Reessayez.</p>');
                         return;

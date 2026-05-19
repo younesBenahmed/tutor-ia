@@ -43,11 +43,11 @@ if ($action === 'generate') {
     require_sesskey();
     $content = \local_tutor_ia\content_extractor::get_course_content($courseid);
 
-    $prompt = "Genere exactement 15 flashcards a partir du contenu de cours suivant.\n";
-    $prompt .= "Format JSON strict, rien d'autre:\n";
-    $prompt .= '[{"front": "question ou terme", "back": "reponse ou definition"}]' . "\n";
-    $prompt .= "Les flashcards doivent couvrir les concepts cles, definitions, et formules importantes.\n";
-    $prompt .= "Reponds UNIQUEMENT avec le JSON.\n\n";
+    $num_cards = strlen($content) > 2000 ? 15 : max(5, (int)(strlen($content) / 100));
+    $prompt = "Genere exactement {$num_cards} flashcards a partir du contenu de cours suivant.\n";
+    $prompt .= "IMPORTANT: Reponds UNIQUEMENT avec un tableau JSON, sans balise <think>, sans bloc markdown, sans explication.\n";
+    $prompt .= "Format exact: [{\"front\": \"question ou terme\", \"back\": \"reponse ou definition\"}]\n";
+    $prompt .= "Les flashcards doivent couvrir les concepts cles, definitions, et formules importantes.\n\n";
     $prompt .= $content;
 
     $api_url = get_config('local_dreamu_ai', 'api_endpoint') ?: 'http://100.76.166.71:8200/v1/chat/completions';
@@ -79,16 +79,22 @@ if ($action === 'generate') {
     $result = json_decode($response, true);
     $text = $result['choices'][0]['message']['content'] ?? '';
 
+    // Clean up common model artifacts.
+    $text = preg_replace('/<think>[\s\S]*?<\/think>/', '', $text);
+    $text = preg_replace('/```json\s*/', '', $text);
+    $text = preg_replace('/```\s*/', '', $text);
+    $text = trim($text);
+
     // Extract JSON array.
     preg_match('/\[[\s\S]*\]/', $text, $matches);
     if (empty($matches)) {
-        echo json_encode(['status' => 'error', 'message' => 'Failed to parse']);
+        echo json_encode(['status' => 'error', 'message' => 'Failed to parse: ' . substr($text, 0, 200)]);
         die();
     }
 
     $cards = json_decode($matches[0], true);
-    if (!is_array($cards)) {
-        echo json_encode(['status' => 'error', 'message' => 'Invalid JSON']);
+    if (!is_array($cards) || count($cards) === 0) {
+        echo json_encode(['status' => 'error', 'message' => 'Invalid JSON: ' . substr($matches[0], 0, 200)]);
         die();
     }
 
