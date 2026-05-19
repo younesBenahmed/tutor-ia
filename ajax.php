@@ -108,10 +108,47 @@ $existing_log = $DB->get_record_select(
     ['uid' => $USER->id, 'cid' => $courseid, 'since' => $now - $session_window]
 );
 
+// Extract topic keyword from the last user message.
+$topic = '';
+$history_arr = json_decode($history_json, true);
+if (is_array($history_arr)) {
+    $last_msg = '';
+    foreach (array_reverse($history_arr) as $m) {
+        if (isset($m['role']) && $m['role'] === 'user') {
+            $last_msg = strtolower($m['content']);
+            break;
+        }
+    }
+    if (empty($last_msg)) {
+        $last_msg = strtolower($history_json);
+    }
+    // Remove stopwords and extract the most significant 1-2 word topic.
+    $stopwords = ['c', 'est', 'quoi', 'un', 'une', 'le', 'la', 'les', 'des', 'de', 'du', 'en', 'et', 'a', 'que',
+        'comment', 'pourquoi', 'quel', 'quelle', 'quels', 'je', 'tu', 'il', 'on', 'nous', 'faire', 'peut',
+        'sert', 'moi', 'me', 'te', 'se', 'ce', 'ca', 'son', 'sa', 'ses', 'mon', 'ma', 'mes', 'pour', 'avec',
+        'dans', 'sur', 'par', 'pas', 'ne', 'plus', 'aussi', 'bien', 'tout', 'tres', 'trop', 'peu', 'dit'];
+    $words = preg_split('/[\s\?\!\.\,\:]+/', $last_msg, -1, PREG_SPLIT_NO_EMPTY);
+    $words = array_filter($words, function($w) use ($stopwords) {
+        return strlen($w) > 2 && !in_array($w, $stopwords);
+    });
+    $words = array_values($words);
+    if (count($words) >= 2) {
+        $topic = $words[0] . ' ' . $words[1];
+    } else if (count($words) === 1) {
+        $topic = $words[0];
+    }
+    $topic = mb_substr($topic, 0, 50);
+}
+
 if ($existing_log) {
     $existing_log->message_count++;
     $existing_log->session_duration = $now - $existing_log->timecreated;
     $existing_log->timemodified = $now;
+    if (!empty($topic) && (empty($existing_log->topic_keywords) || strlen($existing_log->topic_keywords) < 200)) {
+        $existing_log->topic_keywords = empty($existing_log->topic_keywords)
+            ? $topic
+            : $existing_log->topic_keywords . ', ' . $topic;
+    }
     $DB->update_record('local_tutor_ia_logs', $existing_log);
     $logid = $existing_log->id;
 } else {
@@ -119,7 +156,7 @@ if ($existing_log) {
     $log->courseid = $courseid;
     $log->userid = $USER->id;
     $log->message_count = 1;
-    $log->topic_keywords = '';
+    $log->topic_keywords = $topic;
     $log->tokens_used = 0;
     $log->session_duration = 0;
     $log->timecreated = $now;
