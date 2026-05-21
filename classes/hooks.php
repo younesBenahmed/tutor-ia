@@ -76,7 +76,7 @@ class hooks {
         // 3. Pass course ID as a data attribute for the JS to pick up.
         $gamification = !empty($config->gamification) ? '1' : '0';
         $html .= '<div id="tutor-ia-launcher" title="Parler au Tuteur IA" data-courseid="' . $courseid . '" data-gamification="' . $gamification . '">';
-        $html .= '<svg viewBox="0 0 24 24" width="30" height="30" fill="white"><path d="M20 2H4c-1.1 0-2 .9-2 2v18l4-4h14c1.1 0 2-.9 2-2V4c0-1.1-.9-2-2-2z"/></svg>';
+        $html .= '<svg viewBox="0 0 24 24" width="30" height="30" fill="white"><path d="M12 2a2 2 0 0 1 2 2c0 .74-.4 1.39-1 1.73V7h1a7 7 0 0 1 7 7h1a1 1 0 0 1 1 1v3a1 1 0 0 1-1 1h-1.07A7 7 0 0 1 14 22h-4a7 7 0 0 1-6.93-3H2a1 1 0 0 1-1-1v-3a1 1 0 0 1 1-1h1a7 7 0 0 1 7-7h1V5.73c-.6-.34-1-.99-1-1.73a2 2 0 0 1 2-2M7.5 14a1.5 1.5 0 0 0 0 3 1.5 1.5 0 0 0 0-3m9 0a1.5 1.5 0 0 0 0 3 1.5 1.5 0 0 0 0-3M12 9a5 5 0 0 0-5 5h10a5 5 0 0 0-5-5z"/></svg>';
         $html .= '</div>';
 
         $html .= '<div id="tutor-ia-window">';
