@@ -72,13 +72,13 @@ $model_name = get_config('local_dreamu_ai', 'model_name');
 $api_key = get_config('local_dreamu_ai', 'api_key');
 
 if (empty($api_url)) {
-    $api_url = 'http://100.76.166.71:11434/v1/chat/completions';
+    $api_url = 'http://172.18.0.1:9200/v1/chat/completions';
 }
 if (empty($model_name)) {
-    $model_name = 'qwen2.5-coder:32b';
+    $model_name = 'hal9001-supreme';
 }
 if (empty($api_key)) {
-    $api_key = 'ollama';
+    $api_key = 'dummy';
 }
 
 $data = [

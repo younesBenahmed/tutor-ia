@@ -50,9 +50,9 @@ if ($action === 'generate') {
     $prompt .= "Les flashcards doivent couvrir les concepts cles, definitions, et formules importantes.\n\n";
     $prompt .= $content;
 
-    $api_url = get_config('local_dreamu_ai', 'api_endpoint') ?: 'http://100.76.166.71:11434/v1/chat/completions';
-    $model_name = get_config('local_dreamu_ai', 'model_name') ?: 'qwen2.5-coder:32b';
-    $api_key = get_config('local_dreamu_ai', 'api_key') ?: 'ollama';
+    $api_url = get_config('local_dreamu_ai', 'api_endpoint') ?: 'http://172.18.0.1:9200/v1/chat/completions';
+    $model_name = get_config('local_dreamu_ai', 'model_name') ?: 'hal9001-supreme';
+    $api_key = get_config('local_dreamu_ai', 'api_key') ?: 'dummy';
 
     $data = [
         'model' => $model_name,
