@@ -12,7 +12,8 @@ class tutor_ia_api {
      * @return string
      */
     private function build_system_prompt($course_content, $syllabus = '', $coursename = '', $socratic = false) {
-        $prompt = "Tu es un tuteur pédagogique IA intégré à la plateforme Moodle pour le cours : {$coursename}.\n\n";
+        $prompt = "IMPORTANT: Tu DOIS répondre UNIQUEMENT en français. Toutes tes réponses doivent être en langue française, sans exception.\n\n";
+        $prompt .= "Tu es un tuteur pédagogique IA intégré à la plateforme Moodle pour le cours : {$coursename}.\n\n";
 
         // Strict rules section.
         $prompt .= "=== RÈGLES STRICTES ===\n";
@@ -113,9 +114,55 @@ class tutor_ia_api {
         curl_setopt($ch, CURLOPT_TIMEOUT, 120);
 
         $streamed_bytes = 0;
-        curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($curl, $data) use (&$streamed_bytes) {
+        $in_think = false;
+        $think_buffer = '';
+        curl_setopt($ch, CURLOPT_WRITEFUNCTION, function($curl, $data) use (&$streamed_bytes, &$in_think, &$think_buffer) {
             $streamed_bytes += strlen($data);
-            echo $data;
+
+            // Filter <think>...</think> blocks from DeepSeek R1 streaming.
+            // SSE data comes as lines: "data: {json}\n\n"
+            // We need to parse each SSE line, extract content, filter think tags, reconstruct.
+            $lines = explode("\n", $data);
+            $output = '';
+            foreach ($lines as $line) {
+                if (strpos($line, 'data: ') === 0 && strpos($line, '[DONE]') === false) {
+                    $json_str = substr($line, 6);
+                    $parsed = @json_decode($json_str, true);
+                    if ($parsed && isset($parsed['choices'][0]['delta']['content'])) {
+                        $content = $parsed['choices'][0]['delta']['content'];
+
+                        // Track think blocks.
+                        if (strpos($content, '<think>') !== false) {
+                            $in_think = true;
+                            $content = preg_replace('/<think>.*$/s', '', $content);
+                        }
+                        if ($in_think) {
+                            if (strpos($content, '</think>') !== false) {
+                                $in_think = false;
+                                $content = preg_replace('/^.*<\/think>/s', '', $content);
+                            } else {
+                                // Still inside think block, skip this content.
+                                $output .= $line . "\n";
+                                continue;
+                            }
+                        }
+
+                        if (!empty($content)) {
+                            // Reconstruct SSE line with filtered content.
+                            $parsed['choices'][0]['delta']['content'] = $content;
+                            $output .= 'data: ' . json_encode($parsed, JSON_UNESCAPED_UNICODE) . "\n";
+                        } else {
+                            $output .= $line . "\n";
+                        }
+                    } else {
+                        $output .= $line . "\n";
+                    }
+                } else {
+                    $output .= $line . "\n";
+                }
+            }
+
+            echo $output;
             if (ob_get_level() > 0) {
                 ob_flush();
             }
