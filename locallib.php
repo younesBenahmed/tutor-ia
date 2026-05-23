@@ -141,8 +141,7 @@ class tutor_ia_api {
                                 $in_think = false;
                                 $content = preg_replace('/^.*<\/think>/s', '', $content);
                             } else {
-                                // Still inside think block, skip this content.
-                                $output .= $line . "\n";
+                                // Still inside think block — drop this line entirely.
                                 continue;
                             }
                         }
@@ -151,9 +150,8 @@ class tutor_ia_api {
                             // Reconstruct SSE line with filtered content.
                             $parsed['choices'][0]['delta']['content'] = $content;
                             $output .= 'data: ' . json_encode($parsed, JSON_UNESCAPED_UNICODE) . "\n";
-                        } else {
-                            $output .= $line . "\n";
                         }
+                        // If content is empty after filtering, drop the line silently.
                     } else {
                         $output .= $line . "\n";
                     }

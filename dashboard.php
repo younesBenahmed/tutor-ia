@@ -38,8 +38,8 @@ $total_tokens = $DB->get_field_sql(
 
 // Top keywords: split comma-separated keywords and count individually.
 $all_logs = $DB->get_records_select('local_tutor_ia_logs',
-    'courseid = :cid AND timecreated > :since AND topic_keywords IS NOT NULL',
-    ['cid' => $courseid, 'since' => $month_ago], '', 'topic_keywords');
+    'courseid = :cid AND timecreated > :since AND topic_keywords IS NOT NULL AND topic_keywords != :empty',
+    ['cid' => $courseid, 'since' => $month_ago, 'empty' => ''], '', 'id, topic_keywords');
 $keyword_counts = [];
 foreach ($all_logs as $log) {
     if (empty($log->topic_keywords)) {
@@ -90,7 +90,6 @@ echo '</div>';
 // Activity chart.
 echo '<div style="background:#fff; border:1px solid #dee2e6; border-radius:12px; padding:24px; margin-bottom:24px;">';
 echo '<h3 style="margin:0 0 16px;">Activit&eacute; par heure (30 derniers jours)</h3>';
-echo '<canvas id="hourlyChart" height="80"></canvas>';
 echo '</div>';
 
 // Keywords cloud.
@@ -112,40 +111,24 @@ if (!empty($keyword_counts)) {
     echo '</div>';
 }
 
-// Chart.js.
-$hours_json = json_encode(array_values($hours));
-$labels_json = json_encode(array_map(function($h) { return $h . 'h'; }, range(0, 23)));
-
-echo '<script>
-document.addEventListener("DOMContentLoaded", function() {
-    if (typeof Chart === "undefined") {
-        var s = document.createElement("script");
-        s.src = "https://cdn.jsdelivr.net/npm/chart.js";
-        s.onload = buildChart;
-        document.head.appendChild(s);
-    } else {
-        buildChart();
-    }
-    function buildChart() {
-        new Chart(document.getElementById("hourlyChart"), {
-            type: "bar",
-            data: {
-                labels: ' . $labels_json . ',
-                datasets: [{
-                    label: "Messages",
-                    data: ' . $hours_json . ',
-                    backgroundColor: "rgba(15, 111, 197, 0.6)",
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true,
-                plugins: { legend: { display: false } },
-                scales: { y: { beginAtZero: true, ticks: { stepSize: 1 } } }
-            }
-        });
-    }
-});
-</script>';
+// Pure CSS bar chart (no external dependency).
+$max_msgs = max(1, max($hours));
+echo '<div style="display:flex; align-items:flex-end; gap:2px; height:200px; padding:0 4px;">';
+for ($h = 0; $h < 24; $h++) {
+    $val = $hours[$h];
+    $pct = round(($val / $max_msgs) * 100);
+    $color = $val > 0 ? 'rgba(15, 111, 197, 0.7)' : '#e9ecef';
+    $title = $h . 'h : ' . $val . ' message' . ($val > 1 ? 's' : '');
+    echo '<div style="flex:1; display:flex; flex-direction:column; align-items:center; height:100%;">';
+    echo '<div style="flex:1; width:100%; display:flex; align-items:flex-end;">';
+    echo '<div style="width:100%; height:' . max($pct, 2) . '%; background:' . $color . '; border-radius:3px 3px 0 0; min-height:2px;" title="' . $title . '"></div>';
+    echo '</div>';
+    echo '<div style="font-size:0.65em; color:#6c757d; margin-top:4px;">' . $h . 'h</div>';
+    echo '</div>';
+}
+echo '</div>';
+if ($max_msgs > 1) {
+    echo '<div style="text-align:right; font-size:0.75em; color:#aaa; margin-top:4px;">Max : ' . $max_msgs . ' messages</div>';
+}
 
 echo $OUTPUT->footer();
