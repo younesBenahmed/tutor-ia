@@ -41,9 +41,11 @@ if ($action === 'update_status') {
 // AJAX: generate flashcards.
 if ($action === 'generate') {
     require_sesskey();
+    set_time_limit(300);
+    @ob_end_clean();
     $content = \local_tutor_ia\content_extractor::get_course_content($courseid);
 
-    $num_cards = strlen($content) > 2000 ? 15 : max(5, (int)(strlen($content) / 100));
+    $num_cards = strlen($content) > 2000 ? 5 : max(5, (int)(strlen($content) / 100));
     $prompt = "Genere exactement {$num_cards} flashcards a partir du contenu de cours suivant.\n";
     $prompt .= "IMPORTANT: Reponds UNIQUEMENT avec un tableau JSON, sans balise <think>, sans bloc markdown, sans explication.\n";
     $prompt .= "Format exact: [{\"front\": \"question ou terme\", \"back\": \"reponse ou definition\"}]\n";
@@ -57,10 +59,10 @@ if ($action === 'generate') {
     $data = [
         'model' => $model_name,
         'messages' => [
-            ['role' => 'system', 'content' => $prompt],
-            ['role' => 'user', 'content' => 'Genere les flashcards maintenant.']
+            ['role' => 'user', 'content' => $prompt]
         ],
         'temperature' => 0.5,
+        'max_tokens' => 1500,
         'stream' => false
     ];
 
